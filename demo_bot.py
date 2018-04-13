@@ -47,6 +47,3 @@ class RandomBot(SpyBot):
 
     def getClue(self, invalid_words):
         return random.choice(list(self.vocab.difference(invalid_words))), 2
-
-
-"""TODO[1]: implement your bot here that inherits from SpyBot"""

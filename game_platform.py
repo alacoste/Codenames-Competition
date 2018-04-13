@@ -1,7 +1,7 @@
 import random
 from nltk.stem import WordNetLemmatizer
 from demo_bot import RandomBot
-"""TODO[2]: Import your bot from demo_bot."""
+from gloomy_bot import GloomyBot
 
 GAME_WORDS_FILEPATH = "data/game_words.txt"
 VOCAB_FILEPATH = "data/vocab.txt"
@@ -187,7 +187,6 @@ class Codenames(object):
         self.bot_2.update(self.current_player == 1, clue, n_words, guesses)
 
 if __name__ == '__main__':
-    """TODO[3]: Instantiate your bot here, in place of RandomBot."""
-    game = Codenames(RandomBot, RandomBot)
+    game = Codenames(GloomyBot, GloomyBot)
     game.run()
 
