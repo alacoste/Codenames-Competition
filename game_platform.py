@@ -187,6 +187,6 @@ class Codenames(object):
         self.bot_2.update(self.current_player == 1, clue, n_words, guesses)
 
 if __name__ == '__main__':
-    game = Codenames(GloomyBot, GloomyBot)
+    game = Codenames(GloomyBot, RandomBot)
     game.run()
 
