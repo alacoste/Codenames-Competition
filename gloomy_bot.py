@@ -2,6 +2,9 @@ from demo_bot import SpyBot
 import random
 import gensim
 
+WORD2VEC_EMBEDDING = './data/GoogleNews-trimmed-word2vec-negative300.bin'
+SEMANTRIS_EMBEDDING = './data/semantris.bin'
+
 class GloomyBot(SpyBot):
 
     def __init__(self, vocab, game_board, p_id):
@@ -11,7 +14,7 @@ class GloomyBot(SpyBot):
         
         # Load trimmed word2vec model.
         print('Loading word2vec model...')
-        model = gensim.models.KeyedVectors.load_word2vec_format('./data/GoogleNews-trimmed-word2vec-negative300.bin', binary=True)
+        model = gensim.models.KeyedVectors.load_word2vec_format(SEMANTRIS_EMBEDDING, binary=True)
         self.vocab = list(set(vocab) & set(model.vocab))
         print('Model loaded: I am playing with %d potential clue words!' % len(self.vocab))
         
@@ -90,6 +93,7 @@ class GloomyBot(SpyBot):
     
     def getClue(self, invalid_words):
         legal_clue_words = list(set(self.vocab).difference(invalid_words))
+        print('Looking for the best clue out of %d legal clue words...' % len(legal_clue_words))
         
         best_clue = 'N/A'
         best_num_words = 0
