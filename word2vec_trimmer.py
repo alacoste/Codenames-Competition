@@ -1,14 +1,6 @@
 import gensim
 import numpy
-
-def words_from_file(filename):
-    with open(filename) as f:
-        return [line.strip() for line in f]
-
-def get_game_vocabulary():
-    vocab = words_from_file('./data/vocab.txt')
-    game_words = words_from_file('./data/game_words.txt')
-    return list(set(vocab) | set(game_words)), game_words
+import gloomy_helpers
     
 def get_trimmed_model(game_vocab, model_vocab, model_vectors):
     trimmed_model_vocab = {}
@@ -35,7 +27,7 @@ def get_trimmed_model(game_vocab, model_vocab, model_vectors):
 
 if __name__ == '__main__':
     print('Reading game vocabulary...')
-    game_vocab, game_words = get_game_vocabulary()
+    game_vocab, game_words = gloomy_helpers.get_game_vocabulary()
     print('Done reading game vocabulary! [%d words]' % len(game_vocab))
 
     # On windows, you will need to be running 64-bit python to be able to load that large a model.
