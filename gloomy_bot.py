@@ -74,7 +74,7 @@ class GloomyBot(SpyBot):
         board_words_similarities = {word : self.getSimilarity(clue_word, word) for word in board_words}
         board_words_by_descending_similarity = [(word, board_words_similarities[word]) for word in sorted(board_words_similarities, key=board_words_similarities.get, reverse=True)]
         for word, similarity in board_words_by_descending_similarity:
-            print('%s: %.3f' % (word, similarity))
+            print('%30s: %.3f' % (word, similarity))
         pass
         
     def describeAllSimilarities(self, clue_word):
@@ -91,9 +91,10 @@ class GloomyBot(SpyBot):
         pass
         
     def printClueDebug(self, clue_word, num_words, score, debug_dict):
-        print('Clue %s for %d words with score %s' % (clue_word, num_words, score))
+        print('\nClue %s for %d words with score %s' % (clue_word, num_words, tuple(['%.3f' % x for x in score])))
+        print()
         for key, value in debug_dict.items():
-            print('%s: %s', (key, value))
+            print('%30s: %s' % (key, value))
         self.describeAllSimilarities(clue_word)
     
     def getClue(self, invalid_words):
@@ -101,27 +102,33 @@ class GloomyBot(SpyBot):
         print('Looking for the best clue out of %d legal clue words...' % len(legal_clue_words))
         
         NUM_TOP_CLUES = 10
-        top_clues = []
+        top_clues_heap = []
         for clue_word in legal_clue_words:
             num_words, score, debug_dict = self.evaluateClue(clue_word)
             # Push on a heap, sorted by score.
-            heapq.heappush(top_clues, (score, (clue_word, num_words, score, debug_dict)))
-            while len(top_clues) > NUM_TOP_CLUES:
-                heapq.heappop(top_clues)
+            heapq.heappush(top_clues_heap, (score, (clue_word, num_words, score, debug_dict)))
+            while len(top_clues_heap) > NUM_TOP_CLUES:
+                heapq.heappop(top_clues_heap)
         
-        unused, (best_clue_word, best_num_words, best_score, best_debug_dict) = heapq.heappop(top_clues)
-        self.printClueDebug(best_clue_word, best_num_words, best_score, best_debug_dict)
+        # Put the top-K best clues in a list, best first.
+        top_clues = [0] * NUM_TOP_CLUES
+        while len(top_clues_heap) > 0:
+            unused, clue = heapq.heappop(top_clues_heap)
+            top_clues[len(top_clues_heap)] = clue
+            
+        for clue_word, num_words, score, debug_dict in top_clues:
+            print('%20s for %d words, with score %s' % (clue_word, num_words, tuple(['%.3f' % x for x in score])))
         
-        # Debugging for next-best clues.
-        while len(top_clues) > 0:
+        # Debugging for best and next-best clues.
+        for clue_word, num_words, score, debug_dict in top_clues:
+            self.printClueDebug(clue_word, num_words, score, debug_dict)
             print_next_clue_debug = ''
             while print_next_clue_debug != 'y' and print_next_clue_debug != 'n':
                 print_next_clue_debug = input('Print debug for next best clue? [y/n]')
             if print_next_clue_debug == 'n':
                 break
-            unused, (clue_word, num_words, score, debug_dict) = heapq.heappop(top_clues)
-            self.printClueDebug(clue_word, num_words, score, debug_dict)
         
+        best_clue_word, best_num_words, best_score, best_debug_dict = top_clues[0]
         return best_clue_word, best_num_words
         
     # This should return a tuple (num_words, score, debug_dict) where:
@@ -162,22 +169,26 @@ class GloomyBot(SpyBot):
     # STRATEGY: MAX_TOTAL_DISCOUNTED_SIMILARITY
     
     def evaluateClueS2(self, clue_word):
-        def penaltyFunction(similarity, bad_word_similarity, margin):
-            if similarity > bad_word_similarity + margin:
+        def penaltyFunction(similarity, bad_word_similarity, full_margin, zero_margin):
+            assert full_margin >= zero_margin
+            if similarity > bad_word_similarity + full_margin:
                 return 1  # No penality
-            elif similarity < bad_word_similarity:
+            elif similarity < bad_word_similarity + zero_margin:
                 return 0
             else:
-                return (similarity - bad_word_similarity) / margin
+                return (similarity - (bad_word_similarity + zero_margin)) / (full_margin - zero_margin)
         
-        NEUTRAL_MARGIN = 0.08
-        OPPONENT_MARGIN = 0.1
-        ASSASIN_MARGIN = 0.2
+        NEUTRAL_FULL_MARGIN = 0.1
+        NEUTRAL_ZERO_MARGIN = -0.1
+        OPPONENT_FULL_MARGIN = 0.2
+        OPPONENT_ZERO_MARGIN = 0.0
+        ASSASIN_FULL_MARGIN = 0.3
+        ASSASIN_ZERO_MARGIN = 0.1
         def getScore(similarity, opponent_similarities, neutral_similarities, assasin_similarity):
             # If a word has less than these margins, it gets penalized.
-            neutral_penalty = reduce(mul, [penaltyFunction(similarity, bad_word_similarity, NEUTRAL_MARGIN) for bad_word_similarity in neutral_similarities], 1)
-            opponents_penalty = reduce(mul, [penaltyFunction(similarity, bad_word_similarity, OPPONENT_MARGIN) for bad_word_similarity in opponent_similarities], 1)
-            assasin_penalty = penaltyFunction(similarity, assasin_similarity, ASSASIN_MARGIN)
+            neutral_penalty = reduce(mul, [penaltyFunction(similarity, bad_word_similarity, NEUTRAL_FULL_MARGIN, NEUTRAL_ZERO_MARGIN) for bad_word_similarity in neutral_similarities], 1)
+            opponents_penalty = reduce(mul, [penaltyFunction(similarity, bad_word_similarity, OPPONENT_FULL_MARGIN, OPPONENT_ZERO_MARGIN) for bad_word_similarity in opponent_similarities], 1)
+            assasin_penalty = penaltyFunction(similarity, assasin_similarity, ASSASIN_FULL_MARGIN, ASSASIN_ZERO_MARGIN)
             return similarity * neutral_penalty * opponents_penalty * assasin_penalty
     
         my_similarities = [self.getSimilarity(clue_word, word) for word in self.getMyWords()]
@@ -197,13 +208,15 @@ class GloomyBot(SpyBot):
         # Debug info:
         debug_dict = {}
         debug_dict['score'] = '%.3f' % score
-        debug_dict['part_of_score_due_to_unclued_words'] = '%.3f' % (score - sum(my_similarity_scores_over_threshold))
-        debug_dict['unpenalized_neutral_threshold'] = '%.3f' % (max(neutral_similarities) + NEUTRAL_MARGIN)
-        debug_dict['unpenalized_opponent_threshold'] = '%.3f' % (max(opponent_similarities) + OPPONENT_MARGIN)
-        debug_dict['unpenalized_assasin_threshold'] = '%.3f' % (assasin_similarity + ASSASIN_MARGIN)
+        debug_dict['score_from_unclued'] = '%.3f' % (score - sum(my_similarity_scores_over_threshold))
+        debug_dict['neutral_threshold'] = 'full: %.3f, zero: %.3f' % (max(neutral_similarities) + NEUTRAL_FULL_MARGIN, max(neutral_similarities) + NEUTRAL_ZERO_MARGIN)
+        debug_dict['opponent_threshold'] = 'full: %.3f, zero: %.3f' % (max(opponent_similarities) + OPPONENT_FULL_MARGIN, max(opponent_similarities) + OPPONENT_ZERO_MARGIN)
+        debug_dict['assasin_threshold'] = 'full: %.3f, zero: %.3f' % (assasin_similarity + ASSASIN_FULL_MARGIN, assasin_similarity + ASSASIN_ZERO_MARGIN)
+        zipped_and_sorted = sorted(zip(my_similarities, self.getMyWords(), my_similarity_scores), reverse=True)
+        my_similarities, my_words, my_similarity_scores = map(list, zip(*zipped_and_sorted))
         for i in range(0, len(my_similarities)):
             if my_similarity_scores[i] > 0:
-                debug_dict['my_word_%d' % i] = 'sim: %.3f, score: %.3f' % (my_similarities[i], my_similarity_scores[i])
+                debug_dict[my_words[i]] = '%.3f (score: %.3f)' % (my_similarities[i], my_similarity_scores[i])
         
         return (num_words, (score,), debug_dict)
     
