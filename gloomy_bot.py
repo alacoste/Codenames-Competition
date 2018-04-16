@@ -79,13 +79,13 @@ class GloomyBot(SpyBot):
         
     def describeAllSimilarities(self, clue_word):
         print('\nDescribing all similarities for clue [%s]' % clue_word)
-        print('\nMy words:')
+        print('My words:')
         self.describeSimilarities(clue_word, self.getMyWords())
-        print('\nOpponent words:')
+        print('Opponent words:')
         self.describeSimilarities(clue_word, self.getOpponentWords())
-        print('\nNeutral words:')
+        print('Neutral words:')
         self.describeSimilarities(clue_word, self.getNeutralWords())
-        print('\nAssasin word:' )
+        print('Assasin word:' )
         self.describeSimilarities(clue_word, [self.getAssasinWord()])
         print('')
         pass
@@ -142,6 +142,17 @@ class GloomyBot(SpyBot):
             return self.evaluateClueS2(clue_word)
         else:
             assert self.strategy > 0 and self.strategy <= 2
+            
+    def debugSingleWord(self, word, topn = 20):
+        top_candidates_heap = []
+        for candidate in self.vocab:
+            sim = self.model.similarity(candidate, word)
+            heapq.heappush(top_candidates_heap, (sim, candidate))
+            while len(top_candidates_heap) > topn:
+                heapq.heappop(top_candidates_heap)
+        while len(top_candidates_heap) > 0:
+            sim, candidate = heapq.heappop(top_candidates_heap)
+            print('%30s: %.3f' % (candidate, sim))
         
     # ================================================================
     # STRATEGY: MAX_WORDS_AND_MAX_LAST_WORD_MARGIN
@@ -215,7 +226,7 @@ class GloomyBot(SpyBot):
         zipped_and_sorted = sorted(zip(my_similarities, self.getMyWords(), my_similarity_scores), reverse=True)
         my_similarities, my_words, my_similarity_scores = map(list, zip(*zipped_and_sorted))
         for i in range(0, len(my_similarities)):
-            if my_similarity_scores[i] > 0:
+            if my_similarity_scores[i] > 0.01:
                 debug_dict[my_words[i]] = '%.3f (score: %.3f)' % (my_similarities[i], my_similarity_scores[i])
         
         return (num_words, (score,), debug_dict)
